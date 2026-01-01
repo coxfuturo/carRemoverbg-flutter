@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "252116658396",
+    "project_id": "carbgremover-358a3",
+    "storage_bucket": "carbgremover-358a3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:252116658396:android:0c036293612d3eea596c19",
+        "android_client_info": {
+          "package_name": "com.coxfuture.carbgremover"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDW_Xal3y4DiqNy2_dYXBWTmu6JPTjhmhY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
