@@ -1,8 +1,6 @@
-import 'package:carbgremover/Routes.dart';
+import 'package:carbgremover/utils/Routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -12,35 +10,16 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-
-  @override
-  void initState() {
-    super.initState();
-    _checkLoginStatus();
-  }
-
-  Future<void> _checkLoginStatus() async {
-    await Future.delayed(const Duration(seconds: 2)); // optional splash delay
-
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user != null && mounted) {
-      // ✅ USER IS LOGGED IN → DASHBOARD
-      Navigator.pushReplacementNamed(context, Routes.dashboard);
-    }
-
-  }
   @override
   Widget build(BuildContext context) {
-    return
-      AnnotatedRegion<SystemUiOverlayStyle>(
-        value: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent, // 🔥 important
-          statusBarIconBrightness: Brightness.light, // Android icons
-          statusBarBrightness: Brightness.dark, // iOS text
-        ),
-        child: _splashScreen(context),
-      );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent, // 🔥 important
+        statusBarIconBrightness: Brightness.light, // Android icons
+        statusBarBrightness: Brightness.dark, // iOS text
+      ),
+      child: _splashScreen(context),
+    );
   }
 
   Widget _splashScreen(BuildContext context) {
@@ -61,11 +40,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
+
               /// ICON
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Image.asset('assets/images/logo.png', height: 100),
+
                   /// TITLE
                   const Text(
                     "Snap Your Car",
@@ -86,6 +67,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
 
               const SizedBox(height: 40),
+
               /// GET STARTED BUTTON
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -114,7 +96,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
                         SizedBox(width: 8),
-                        Icon(Icons.arrow_forward,color: Colors.white, size: 18),
+                        Icon(
+                          Icons.arrow_forward,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ],
                     ),
                   ),

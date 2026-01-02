@@ -1,28 +1,36 @@
-import 'package:carbgremover/Routes.dart';
+import 'package:carbgremover/utils/Routes.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-
-class _LoginScreenState extends State<LoginScreen> {
-
+class _RegisterScreenState extends State<RegisterScreen> {
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   bool _isValidEmail(String email) {
     final emailRegex = RegExp(
@@ -31,12 +39,14 @@ class _LoginScreenState extends State<LoginScreen> {
     return emailRegex.hasMatch(email);
   }
 
-  Future<void> _loginUser() async {
+
+  Future<void> _registerUser() async {
+    final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
-      Fluttertoast.showToast(msg: "Email & password are required");
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      Fluttertoast.showToast(msg: "All fields are required");
       return;
     }
 
@@ -45,35 +55,51 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    if (password.length < 6) {
+      Fluttertoast.showToast(msg: "Password must be at least 6 characters");
+      return;
+    }
+
     try {
       setState(() => _isLoading = true);
 
-      await _auth.signInWithEmailAndPassword(
+      final userCredential =
+      await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      Fluttertoast.showToast(msg: "Login successful ✅");
+      final uid = userCredential.user!.uid;
 
+      await userCredential.user!.updateDisplayName(name);
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .set({
+        "uid": uid,
+        "name": name,
+        "email": email,
+        "password": password,
+        "createdAt": FieldValue.serverTimestamp(),
+        "provider": "email",
+        "isActive": true,
+      });
+
+      Fluttertoast.showToast(msg: "Account created successfully 🎉");
+
+      if (!mounted) return;
+
+      /// ✅ REMOVE ALL PREVIOUS SCREENS
       Navigator.pushNamedAndRemoveUntil(
         context,
         Routes.dashboard,
             (route) => false,
       );
-
-
     } on FirebaseAuthException catch (e) {
-      String message = "Login failed";
-
-      if (e.code == 'user-not-found') {
-        message = "No account found with this email";
-      } else if (e.code == 'wrong-password') {
-        message = "Incorrect password";
-      } else if (e.code == 'invalid-email') {
-        message = "Invalid email address";
-      }
-
-      Fluttertoast.showToast(msg: message);
+      Fluttertoast.showToast(
+        msg: e.message ?? "Registration failed",
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -82,20 +108,21 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
 
+
   @override
   Widget build(BuildContext context) {
     return
       AnnotatedRegion<SystemUiOverlayStyle>(
-          value: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent, // 🔥 important
-            statusBarIconBrightness: Brightness.light, // Android icons
-            statusBarBrightness: Brightness.dark, // iOS text
-          ),
-          child: _loginScreen(context),
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent, // 🔥 important
+          statusBarIconBrightness: Brightness.light, // Android icons
+          statusBarBrightness: Brightness.dark, // iOS text
+        ),
+        child: _registerScreen(context),
       );
   }
 
-  Widget _loginScreen(BuildContext context) {
+  Widget _registerScreen(BuildContext context) {
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -113,33 +140,36 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                /// BACK BUTTON
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                 ),
-                const SizedBox(height: 40),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset('assets/images/logo.png', height: 100),
-                    /// TITLE
-                    const Text(
-                      "Snap Your Car",
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 40),
 
-                /// WELCOME TEXT
+                const SizedBox(height: 24),
+
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset('assets/images/logo.png', height: 100),
+                      const SizedBox(width: 8),
+                      const Text(
+                        "Snap Your Car",
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 28),
+
                 const Center(
                   child: Text(
-                    "Welcome back",
+                    "Create account",
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
@@ -152,14 +182,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const Center(
                   child: Text(
-                    "Sign in to access your car photos",
-                    style: TextStyle(fontSize: 14, color: Colors.white60),
+                    "Get started with your lifetime subscription",
+                    style: TextStyle(color: Colors.white60),
                   ),
                 ),
 
                 const SizedBox(height: 32),
 
-                /// EMAIL
+                const Text("Full Name", style: TextStyle(color: Colors.white70)),
+                const SizedBox(height: 6),
+                _inputField(
+                  hint: "Marco Demo",
+                  controller: _nameController,
+                ),
+
+                const SizedBox(height: 20),
+
                 const Text("Email", style: TextStyle(color: Colors.white70)),
                 const SizedBox(height: 6),
                 _inputField(
@@ -169,20 +207,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 20),
 
-                /// PASSWORD + FORGOT
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text("Password", style: TextStyle(color: Colors.white70)),
-                    Text(
-                      "Forgot?",
-                      style: TextStyle(color: Color(0xFF29B6F6), fontSize: 13),
-                    ),
-                  ],
-                ),
+                const Text("Password", style: TextStyle(color: Colors.white70)),
                 const SizedBox(height: 6),
                 _inputField(
-                  hint: "••••••••",
+                  hint: "*******",
                   controller: _passwordController,
                   isPassword: _obscurePassword,
                   suffixIcon: IconButton(
@@ -201,12 +229,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                /// SIGN IN BUTTON
                 SizedBox(
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _loginUser,
+                    onPressed: _isLoading ? null : _registerUser,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF29B6F6),
                       shape: RoundedRectangleBorder(
@@ -216,11 +243,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text(
-                      "Sign In",
+                      "Create Account",
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
                         color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -228,47 +255,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 20),
 
-                /// SIGN UP TEXT
                 Center(
                   child: RichText(
                     text: TextSpan(
-                      text: "Don't have an account? ",
+                      text: "Already have an account? ",
                       style: const TextStyle(color: Colors.white60),
                       children: [
                         TextSpan(
-                          text: "Sign up",
+                          text: "Sign in",
                           style: const TextStyle(
                             color: Color(0xFF29B6F6),
                             fontWeight: FontWeight.w600,
                           ),
                           recognizer: TapGestureRecognizer()
-                            ..onTap = () {
-                              Navigator.pushNamed(context, Routes.register);
-                            },
+                            ..onTap = () => Navigator.pop(context),
                         ),
                       ],
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 28),
-
-                /// DIVIDER
-                Row(
-                  children: const [
-                    Expanded(child: Divider(color: Colors.white24)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        "OR",
-                        style: TextStyle(color: Colors.white38),
-                      ),
-                    ),
-                    Expanded(child: Divider(color: Colors.white24)),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
+                const SizedBox(height: 30),
 
                 /// DEMO BUTTON
                 SizedBox(
@@ -297,8 +304,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 30),
               ],
             ),
           ),
@@ -310,8 +315,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   static Widget _inputField({
     required String hint,
-    bool isPassword = false,
     required TextEditingController controller,
+    bool isPassword = false,
     Widget? suffixIcon,
   }) {
     return TextField(
@@ -328,12 +333,9 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 18,
-        ),
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       ),
     );
   }
-
 }

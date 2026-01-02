@@ -1,5 +1,5 @@
-import 'package:carbgremover/Routes.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:carbgremover/services/FirebaseServices.dart';
+import 'package:carbgremover/utils/Routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -12,7 +12,6 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-
   late AnimationController _controller;
   late Animation<double> _scaleAnim;
   late Animation<double> _fadeAnim;
@@ -27,11 +26,15 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 1200),
     );
 
-    _scaleAnim = Tween<double>(begin: 0.85, end: 1.0)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _scaleAnim = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+    _fadeAnim = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     _controller.forward();
 
@@ -41,13 +44,13 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _checkLoginStatus() async {
     await Future.delayed(const Duration(seconds: 2));
 
-    final user = FirebaseAuth.instance.currentUser;
-
     if (!mounted) return;
+
+    final isLoggedIn = AuthService.isLoggedIn();
 
     Navigator.pushReplacementNamed(
       context,
-      user != null ? Routes.dashboard : Routes.onBoardingScreen,
+      isLoggedIn ? Routes.dashboard : Routes.onBoardingScreen,
     );
   }
 
@@ -86,10 +89,7 @@ class _SplashScreenState extends State<SplashScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       /// LOGO
-                      Image.asset(
-                        'assets/images/logo.png',
-                        height: 130,
-                      ),
+                      Image.asset('assets/images/logo.png', height: 130),
 
                       const SizedBox(height: 20),
 

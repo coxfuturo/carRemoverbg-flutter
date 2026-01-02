@@ -9,8 +9,6 @@ class Routes {
   static const carDetailScreen = '/carDetailScreen';
   static const cameraCaptureScreen = '/cameraCaptureScreen';
   static const imagePreview = '/imagePreview';
-
-
   static const history = '/history';
   static const helpFaqScreen = '/helpFaqScreen';
   static const reportBugScreen = '/reportBugScreen';

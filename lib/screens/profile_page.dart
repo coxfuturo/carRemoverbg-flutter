@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-import 'Routes.dart';
+import '../utils/Routes.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

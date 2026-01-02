@@ -1,37 +1,31 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:camera/camera.dart';
-import 'package:carbgremover/CarImage.dart';
-import 'package:carbgremover/PreviewScreen.dart';
+import 'package:carbgremover/models/CarPose.dart';
+import 'package:carbgremover/screens/PreviewScreen.dart';
+import 'package:carbgremover/services/VerifyPoseService.dart';
+import 'package:carbgremover/services/car_service.dart';
+import 'package:carbgremover/widgets/corner_painter.dart';
+import 'package:carbgremover/widgets/pose_Item.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
 
 class CameraCaptureScreen extends StatefulWidget {
-  const CameraCaptureScreen({super.key});
+  final String carId;
+
+  const CameraCaptureScreen({
+    super.key,
+    required this.carId,
+  });
 
   @override
   State<CameraCaptureScreen> createState() => _CameraScreenState();
 }
 
-
-class CarPose {
-  final String name;
-  final String guideImage;
-
-  const CarPose({
-    required this.name,
-    required this.guideImage,
-  });
-}
-
-
 class _CameraScreenState extends State<CameraCaptureScreen> {
-
   late CameraController _controller;
   bool _isReady = false;
   bool _isInitializing = true;
@@ -88,6 +82,7 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
               ),
               onPressed: () {
                 Navigator.pop(context);
+                // Navigator.pop(context);
                 openPreviewScreen();
               },
 
@@ -99,18 +94,7 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
     );
   }
 
-
-
   void openPreviewScreen() {
-    final List<CarImage> images = _capturedImages.values
-        .expand((list) => list)
-        .map((xfile) => CarImage(original: xfile))
-        .toList();
-
-    if (images.isEmpty) {
-      Fluttertoast.showToast(msg: "Please capture at least one image");
-      return;
-    }
 
     if (Navigator.canPop(context)) {
       Navigator.pop(context);
@@ -118,28 +102,11 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => PreviewScreen(images: images)),
+      MaterialPageRoute(builder: (_) => PreviewScreen(carId: widget.carId)),
     );
   }
 
-
-  final List<CarPose> poses = [
-    CarPose(name: "Front", guideImage: "assets/images/front.png"),
-    CarPose(name: "Front Left", guideImage: "assets/images/frontLeft.png"),
-    CarPose(name: "Front Right", guideImage: "assets/images/frontRight.png"),
-
-    CarPose(name: "Left Side", guideImage: "assets/images/left_side.png"),
-    CarPose(name: "Right Side", guideImage: "assets/images/rightSide.png"),
-
-    CarPose(name: "Back Left", guideImage: "assets/images/backLeft.png"),
-    CarPose(name: "BACK", guideImage: "assets/images/back.png"),
-    CarPose(name: "Back Right", guideImage: "assets/images/backRight.png"),
-
-    CarPose(name: "Interior Dashboard", guideImage: "assets/images/dashboard.png"),
-  ];
-
   bool _isVerifying = false;
-
 
   @override
   void initState() {
@@ -154,55 +121,10 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
       DeviceOrientation.landscapeRight,
     ]);
     _initCamera();
+    _restoreCapturedImages();
   }
 
-
-  Future<Map<String, dynamic>> verifyPose({
-    required File imageFile,
-    required String expectedLabel,
-  }) async {
-    final uri = Uri.parse(
-      "https://coxfuture.com/fastapi/verify_poses",
-    );
-
-    final request = http.MultipartRequest("POST", uri);
-
-    request.fields["expected_label"] = expectedLabel;
-
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        "image",
-        imageFile.path,
-      ),
-    );
-
-    debugPrint("➡️ VERIFY POSE API CALL");
-    debugPrint("URL: $uri");
-    debugPrint("Expected label: $expectedLabel");
-    debugPrint("Image path: ${imageFile.path}");
-
-    final response = await request.send();
-
-    final statusCode = response.statusCode;
-    final responseBody = await response.stream.bytesToString();
-
-    debugPrint("⬅️ STATUS CODE: $statusCode");
-    debugPrint("⬅️ RESPONSE BODY: $responseBody");
-
-    if (statusCode == 200) {
-      return jsonDecode(responseBody);
-    } else {
-      return {
-        "success": false,
-        "statusCode": statusCode,
-        "error": responseBody,
-      };
-    }
-  }
-
-
-
-  void _showInvalidPoseDialog(String message) {
+  void _showInvalidPoseDialog(BuildContext context, String message) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -216,6 +138,33 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _restoreCapturedImages() async {
+    try {
+      final restoredImages = await CarService.getUploadedPoseImages(
+        widget.carId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _capturedImages.clear();
+        _capturedImages.addAll(restoredImages);
+
+        // move to first incomplete pose
+        for (int i = 0; i < poses.length; i++) {
+          if (_capturedImages[i]?.isNotEmpty != true) {
+            _selectedPoseIndex = i;
+            break;
+          }
+        }
+      });
+
+      _checkAllPosesCompleted();
+    } catch (e) {
+      debugPrint("❌ Restore failed: $e");
+    }
   }
 
   Future<void> _captureImage() async {
@@ -234,6 +183,7 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
 
       /// 🔊 Play shutter sound
       _audioPlayer.play(AssetSource('sound/camera_audio.mp3'));
+      final int poseIndex = _selectedPoseIndex;
 
       /// 🎯 Expected pose
       final String expectedPose = poses[_selectedPoseIndex].name;
@@ -248,11 +198,11 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
       /// ✅ SAFE BOOLEAN CHECK
       final bool isMatch = result["data"]?["match"] == true;
 
-
       /// ❌ INVALID POSE
       if (!isMatch) {
         if (mounted) {
           _showInvalidPoseDialog(
+            context,
             result["message"] ?? "Please capture the correct car pose",
           );
         }
@@ -263,8 +213,8 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
       if (!mounted) return;
 
       setState(() {
-        _capturedImages.putIfAbsent(_selectedPoseIndex, () => []);
-        _capturedImages[_selectedPoseIndex]!.add(image);
+        _capturedImages.putIfAbsent(poseIndex, () => []);
+        _capturedImages[poseIndex]!.add(image);
 
         if (_selectedPoseIndex < poses.length - 1) {
           _selectedPoseIndex++;
@@ -273,7 +223,7 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
 
       _scrollToSelectedPose();
       _checkAllPosesCompleted();
-
+      uploadImageInBackground(image: image, poseIndex: poseIndex);
     } catch (e) {
       debugPrint("❌ Capture error: $e");
       Fluttertoast.showToast(msg: "Pose verification failed");
@@ -282,35 +232,18 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
     }
   }
 
-
-
-  Future<void> _captureImage11111() async {
-    if (!_controller.value.isInitialized || _controller.value.isTakingPicture) {
-      return;
-    }
-
+  Future<void> uploadImageInBackground({
+    required XFile image,
+    required int poseIndex,
+  }) async {
     try {
-      /// 📸 CAPTURE FIRST
-      final XFile image = await _controller.takePicture();
-
-      /// 🔊 PLAY SHUTTER SOUND
-      _audioPlayer.play(AssetSource('sound/camera_audio.mp3'));
-
-      /// ✅ UPDATE STATE
-      setState(() {
-        _capturedImages.putIfAbsent(_selectedPoseIndex, () => []);
-        _capturedImages[_selectedPoseIndex]!.add(image);
-
-        /// AUTO MOVE TO NEXT POSE
-        if (_selectedPoseIndex < poses.length - 1) {
-          _selectedPoseIndex++;
-        }
-      });
-      _scrollToSelectedPose();
-      _checkAllPosesCompleted();
+      await CarService.uploadSingleImage(
+        carId: widget.carId,
+        imageFile: image,
+        poseIndex: poseIndex,
+      );
     } catch (e) {
-      debugPrint("Capture error: $e");
-      Fluttertoast.showToast(msg: "Failed to capture image");
+      debugPrint("❌ Background upload failed: $e");
     }
   }
 
@@ -345,20 +278,23 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
 
     if (image == null) return;
 
-    setState(() {
-      _capturedImages.putIfAbsent(_selectedPoseIndex, () => []);
-      _capturedImages[_selectedPoseIndex]!.add(image);
+    final int poseIndex = _selectedPoseIndex; // ✅ CAPTURE FIRST
 
-      /// AUTO MOVE TO NEXT POSE
+    // ✅ PLACE THE BLOCK HERE
+    setState(() {
+      _capturedImages.putIfAbsent(poseIndex, () => []);
+      _capturedImages[poseIndex]!.add(image);
+
       if (_selectedPoseIndex < poses.length - 1) {
         _selectedPoseIndex++;
       }
     });
 
     _scrollToSelectedPose();
-
-    /// CHECK COMPLETION
     _checkAllPosesCompleted();
+
+    // 🚀 BACKGROUND UPLOAD
+    uploadImageInBackground(image: image, poseIndex: poseIndex);
   }
 
   void _checkAllPosesCompleted() {
@@ -400,28 +336,8 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
     _poseScrollController.dispose();
     _audioPlayer.dispose();
     _controller.dispose();
-
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
-  }
-
-  Widget _frameOverlay1() {
-    return Image.asset(
-      poses[_selectedPoseIndex].guideImage,
-      fit: BoxFit.contain, // 🔥 VERY IMPORTANT
-    );
-  }
-
-
-  Widget _frameOverlay2() {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Image.asset(
-          poses[_selectedPoseIndex].guideImage,
-          fit: BoxFit.cover,
-        ),
-      ),
-    );
   }
 
   @override
@@ -494,7 +410,8 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
                         Row(
                           children: [
                             Text(
-                              poses[_selectedPoseIndex].name, // 🔥 selected pose
+                              poses[_selectedPoseIndex].name,
+                              // 🔥 selected pose
                               style: const TextStyle(
                                 fontSize: 16,
                                 color: Colors.white,
@@ -519,19 +436,11 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
 
                   /// GUIDE TEXT
 
-
                   /// FRAME OVERLAY
                   Positioned.fill(
-                    child: IgnorePointer(
-                      child: _frameOverlay1(),
-                    ),
+                    child: IgnorePointer(child: _frameOverlay1()),
                   ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: _frameOverlay(),
-                    ),
-                  ),
-
+                  Positioned.fill(child: IgnorePointer(child: _frameOverlay())),
                 ],
               ),
             ),
@@ -618,6 +527,13 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
     );
   }
 
+  Widget _frameOverlay1() {
+    return Image.asset(
+      poses[_selectedPoseIndex].guideImage,
+      fit: BoxFit.contain, // 🔥 VERY IMPORTANT
+    );
+  }
+
   static Widget _frameOverlay() {
     return SizedBox(
       width: 500,
@@ -643,126 +559,4 @@ class _CameraScreenState extends State<CameraCaptureScreen> {
       ),
     );
   }
-}
-
-class PoseItem extends StatelessWidget {
-  final String title;
-  final String image;
-  final bool selected;
-  final bool completed;
-  final VoidCallback onTap;
-
-  const PoseItem({
-    super.key,
-    required this.title,
-    required this.selected,
-    required this.completed,
-    required this.image,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Color borderColor;
-
-    if (completed) {
-      borderColor = Colors.green; // ✅ completed
-    } else if (selected) {
-      borderColor = const Color(0xFF29B6F6); // selected
-    } else {
-      borderColor = Colors.white24;
-    }
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 90,
-        height: 90,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0E2235),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: borderColor,
-            width: completed || selected ? 2 : 1,
-          ),
-        ),
-        child: Stack(
-          children: [
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset(
-                    image,
-                    fit: BoxFit.cover,
-                    height: 40,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: completed
-                          ? Colors.green
-                          : selected
-                          ? Colors.white
-                          : Colors.white54,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            /// ✅ CHECK ICON
-            if (completed)
-              const Positioned(
-                top: 6,
-                right: 6,
-                child: Icon(Icons.check_circle, color: Colors.green, size: 18),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class CornerPainter extends CustomPainter {
-  final Alignment alignment;
-
-  CornerPainter(this.alignment);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.square;
-
-    final double w = size.width;
-    final double h = size.height;
-
-    if (alignment == Alignment.topLeft) {
-      // ┌
-      canvas.drawLine(Offset(0, 0), Offset(w, 0), paint);
-      canvas.drawLine(Offset(0, 0), Offset(0, h), paint);
-    } else if (alignment == Alignment.topRight) {
-      // ┐
-      canvas.drawLine(Offset(w, 0), Offset(0, 0), paint);
-      canvas.drawLine(Offset(w, 0), Offset(w, h), paint);
-    } else if (alignment == Alignment.bottomLeft) {
-      // └
-      canvas.drawLine(Offset(0, h), Offset(w, h), paint);
-      canvas.drawLine(Offset(0, h), Offset(0, 0), paint);
-    } else if (alignment == Alignment.bottomRight) {
-      // ┘
-      canvas.drawLine(Offset(w, h), Offset(0, h), paint);
-      canvas.drawLine(Offset(w, h), Offset(w, 0), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

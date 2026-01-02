@@ -48,6 +48,9 @@ dependencies:
   cloud_firestore: ^5.5.0
   audioplayers: ^5.2.0
   firebase_storage: ^12.3.0
+  firebase_app_check: ^0.3.2+10
+  archive: ^3.4.10
+  share_plus: ^7.2.1
 
 
 

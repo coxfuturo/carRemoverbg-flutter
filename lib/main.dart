@@ -1,28 +1,24 @@
-import 'package:carbgremover/CameraCaptureScreen.dart';
-import 'package:carbgremover/CarImage.dart';
-import 'package:carbgremover/CarViewDetailScreen.dart';
-import 'package:carbgremover/DashboardRoot.dart';
-import 'package:carbgremover/Login.dart';
-import 'package:carbgremover/OnboardingScreen.dart';
-import 'package:carbgremover/PreviewScreen.dart';
-import 'package:carbgremover/profile_page.dart';
 import 'package:carbgremover/report_bug_screen.dart';
+import 'package:carbgremover/screens/CameraCaptureScreen.dart';
+import 'package:carbgremover/screens/DashboardRoot.dart';
+import 'package:carbgremover/screens/Login.dart';
+import 'package:carbgremover/screens/OnboardingScreen.dart';
+import 'package:carbgremover/screens/Register.dart';
+import 'package:carbgremover/screens/profile_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'AppSettings.dart';
-import 'Register.dart';
-import 'Routes.dart';
+
 import 'billing_history_screen.dart';
 import 'contact_support_screen.dart';
 import 'edit_profile_screen.dart';
 import 'help_faq_screen.dart';
 import 'history_screen.dart';
-import 'home_page.dart';
 import 'manage_plan_screen.dart';
-import 'splash_screen.dart';
-
-
+import 'screens/home_page.dart';
+import 'screens/splash_screen.dart';
+import 'utils/app_settings.dart';
+import 'utils/Routes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,13 +26,9 @@ void main() async {
   await Firebase.initializeApp();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AppSettings(),
-      child: const MyApp(),
-    ),
+    ChangeNotifierProvider(create: (_) => AppSettings(), child: const MyApp()),
   );
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -69,10 +61,18 @@ class MyApp extends StatelessWidget {
         Routes.billingHistoryScreen: (_) => const BillingHistoryScreen(),
         Routes.editProfileScreen: (_) => const EditProfileScreen(),
         Routes.contactSupportScreen: (_) => const ContactSupportScreen(),
-        Routes.carDetailScreen: (_) => const CarDetailScreen(),
-        Routes.cameraCaptureScreen: (_) => const CameraCaptureScreen(),
+        // Routes.carDetailScreen: (carId) => const CarDetailScreen(carId),
+        Routes.cameraCaptureScreen: (context) {
+          final args =
+          ModalRoute
+              .of(context)!
+              .settings
+              .arguments as Map<String, dynamic>;
+          return CameraCaptureScreen(
+            carId: args["carId"],
+          );
+        }
       },
     );
   }
 }
-
