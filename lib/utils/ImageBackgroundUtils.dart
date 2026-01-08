@@ -6,10 +6,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class ImageBackgroundUtils {
-  static Future<Uint8List> applyBackground({
+  static Future<Uint8List> applyBackground1({
     required Uint8List carPng,
     required BackgroundItem background,
-  }) async {
+  }) async
+  {
     if (background.id == "transparent") {
       return carPng;
     }
@@ -92,5 +93,91 @@ class ImageBackgroundUtils {
       return carPng;
     }
   }
+
+  static Future<Uint8List> applyBackground({
+    required Uint8List carPng,
+    required BackgroundItem background,
+  }) async {
+    if (background.id == "transparent") return carPng;
+
+    try {
+      const double canvasW = 1280;
+      const double canvasH = 720;
+
+      // Load background
+      final bgData = await rootBundle.load(background.asset);
+      final bgFrame = await ui
+          .instantiateImageCodec(bgData.buffer.asUint8List())
+          .then((c) => c.getNextFrame());
+      final bgImage = bgFrame.image;
+
+      // Load car
+      final carFrame = await ui
+          .instantiateImageCodec(carPng)
+          .then((c) => c.getNextFrame());
+      final carImage = carFrame.image;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+
+      // ---------- BACKGROUND ----------
+      final fitted = applyBoxFit(
+        BoxFit.cover,
+        Size(bgImage.width.toDouble(), bgImage.height.toDouble()),
+        const Size(canvasW, canvasH),
+      );
+
+      final srcRect = Rect.fromLTWH(
+        (bgImage.width - fitted.source.width) / 2,
+        (bgImage.height - fitted.source.height) / 2,
+        fitted.source.width,
+        fitted.source.height,
+      );
+
+      final dstRect = const Rect.fromLTWH(
+        0,
+        0,
+        canvasW,
+        canvasH,
+      );
+
+      canvas.drawImageRect(bgImage, srcRect, dstRect, Paint());
+
+      // ---------- CAR ----------
+      final double targetCarWidth = canvasW * 0.85;
+      final double scale = targetCarWidth / carImage.width;
+
+      final double carW = carImage.width * scale;
+      final double carH = carImage.height * scale;
+
+      final Offset carOffset = Offset(
+        (canvasW - carW) / 2,
+        canvasH - carH - 20,
+      );
+
+      canvas.save();
+      canvas.translate(carOffset.dx, carOffset.dy);
+      canvas.scale(scale);
+      canvas.drawImage(carImage, Offset.zero, Paint());
+      canvas.restore();
+
+      // ---------- EXPORT ----------
+      final picture = recorder.endRecording();
+      final image =
+      await picture.toImage(canvasW.toInt(), canvasH.toInt());
+      final bytes =
+      await image.toByteData(format: ui.ImageByteFormat.png);
+
+      bgImage.dispose();
+      carImage.dispose();
+      image.dispose();
+
+      return bytes!.buffer.asUint8List();
+    } catch (e) {
+      debugPrint("applyBackground error: $e");
+      return carPng;
+    }
+  }
+
 
 }

@@ -163,42 +163,6 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
 
-  Future<void> uploadAllImages11() async {
-    final store = context.read<CaptureStore>();
-
-    final images = List<CarImage>.from(store.images)
-      ..sort((a, b) => a.poseIndex.compareTo(b.poseIndex));
-
-    setState(() => isUploading = true);
-
-    try {
-      await CarService.createCarAndUploadAllImages(
-        images: images,
-        onProgress: (progress) {
-          if (!mounted) return;
-          setState(() => uploadProgress = progress);
-        },
-      );
-
-      context.read<CaptureStore>().clearAll();
-      Fluttertoast.showToast(msg: "Upload completed");
-
-      if (!mounted) return;
-
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        Routes.dashboard,
-            (_) => false,
-      );
-    } catch (e) {
-      Fluttertoast.showToast(msg: e.toString());
-    } finally {
-      if (mounted) {
-        setState(() => isUploading = false);
-      }
-    }
-  }
-
   Future<void> uploadAllImages() async {
     final store = context.read<CaptureStore>();
 
