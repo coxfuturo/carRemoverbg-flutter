@@ -1,13 +1,9 @@
 import 'package:carbgremover/services/service_image_download.dart';
-import 'package:carbgremover/services/car_service.dart';
-import 'package:carbgremover/utils/Routes.dart';
 import 'package:carbgremover/utils/app_utils.dart';
-import 'package:carbgremover/utils/permissions.dart';
 import 'package:carbgremover/widgets/photo_card.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
 class CarDetailScreen extends StatelessWidget {
   final String carId;
@@ -19,157 +15,12 @@ class CarDetailScreen extends StatelessWidget {
     required this.heroTag,
   });
 
-  Future<void> exportImagesAsZip(BuildContext context) async {
-    try {
-      final granted = await requestStoragePermission();
-      if (!granted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Storage permission denied")),
-        );
-        return;
-      }
-
-      final zipPath = await ImageExportService.exportAsZip(carId);
-
-      if (!context.mounted) return;
-
-      await Share.shareXFiles([XFile(zipPath)], text: "Car images export");
-    } catch (e) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Export failed")));
-    }
-  }
-
-  Future<void> downloadImagesIndividually(BuildContext context) async {
-    try {
-      final granted = await requestStoragePermission();
-      if (!granted) return;
-
-      await ImageExportService.downloadImages(carId);
-
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Images saved to Downloads")),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Download failed")));
-    }
-  }
-
-  Future<void> _confirmDelete(BuildContext context) async {
-    final bool? confirm = await showDialog<bool>(
-
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF0E2235),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            "Delete Session",
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
-            "Are you sure you want to delete this car session?\n\nThis action cannot be undone.",
-            style: TextStyle(color: Colors.white70),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text(
-                "Cancel",
-                style: TextStyle(color: Colors.white54),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text("Delete"),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm == true) {
-      Navigator.pop(context, true);
-      await CarService.deleteCar(carId);
-    }
-  }
-
-  void _showExportOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF0E2235),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.archive, color: Colors.white),
-                title: const Text(
-                  "Download as ZIP",
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  exportImagesAsZip(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.image, color: Colors.white),
-                title: const Text(
-                  "Download images",
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  downloadImagesIndividually(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.share, color: Colors.white),
-                title: const Text(
-                  "Share images",
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  exportImagesAsZip(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _exportButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: OutlinedButton.icon(
         onPressed: () {
-          _showExportOptions(context);
+          ImageExportService.showExportOptions(context, carId);
         },
         icon: const Icon(Icons.download, size: 18),
         label: const Text("Export"),
@@ -223,20 +74,8 @@ class CarDetailScreen extends StatelessWidget {
         actions: [
           _exportButton(context),
           IconButton(
-            icon: const Icon(Icons.edit_outlined, color: Colors.white),
-            onPressed: () {
-              Navigator.pushNamed(
-                context,
-                Routes.cameraCaptureScreen,
-                arguments: {
-                  "carId": carId,
-                },
-              );
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.white),
-            onPressed: () => _confirmDelete(context),
+            onPressed: () => ImageExportService.confirmDelete(context, carId),
           ),
         ],
       ),
@@ -309,8 +148,7 @@ class CarDetailScreen extends StatelessWidget {
                     builder: (context, imgSnapshot) {
                       if (imgSnapshot.connectionState ==
                           ConnectionState.waiting) {
-                        return const Center(
-                            child: CircularProgressIndicator());
+                        return const Center(child: CircularProgressIndicator());
                       }
 
                       if (!imgSnapshot.hasData ||
@@ -328,20 +166,19 @@ class CarDetailScreen extends StatelessWidget {
                       return GridView.builder(
                         itemCount: images.length,
                         gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 0.85,
-                        ),
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 5,
+                              mainAxisSpacing: 10,
+                              childAspectRatio: 0.85,
+                            ),
                         itemBuilder: (context, index) {
                           final img =
-                          images[index].data() as Map<String, dynamic>;
+                              images[index].data() as Map<String, dynamic>;
 
                           return PhotoCard(
                             image: img["url"],
-                            title:
-                            "Photo ${(img["poseIndex"] ?? index) + 1}",
+                            title: "Photo ${(img["poseIndex"] ?? index) + 1}",
                             subtitle: "Processed",
                           );
                         },
@@ -354,7 +191,6 @@ class CarDetailScreen extends StatelessWidget {
           );
         },
       ),
-
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:carbgremover/models/CarImage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:typed_data';
 
 class CarService {
   static final _auth = FirebaseAuth.instance;
@@ -31,6 +32,7 @@ class CarService {
     }).toList();
   }
 
+
   static Future<String> createNewCar({required String carName}) async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -54,34 +56,7 @@ class CarService {
     return carRef.id;
   }
 
-  static Future<Map<int, List<XFile>>> getUploadedPoseImages(
-    String carId,
-  ) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return {};
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection("users")
-        .doc(user.uid)
-        .collection("cars")
-        .doc(carId)
-        .collection("images")
-        .orderBy("createdAt")
-        .get();
-
-    final Map<int, List<XFile>> result = {};
-
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final poseIndex = data["poseIndex"];
-      final url = data["url"];
-
-      result.putIfAbsent(poseIndex, () => []);
-      result[poseIndex]!.add(XFile(url));
-    }
-
-    return result;
-  }
 
   static Future<void> uploadSingleImage({
     required String carId,
@@ -145,6 +120,113 @@ class CarService {
       tx.update(carRef, updateData);
     });
   }
+  static Future<void> createCarAndUploadAllImages({
+    required List<CarImage> images,
+    required Function(double progress) onProgress,
+  }) async {
+    final uid = _auth.currentUser!.uid;
+
+    if (images.isEmpty) {
+      throw Exception("No images to upload");
+    }
+
+    final userRef = _firestore.collection("users").doc(uid);
+
+    /// 1️⃣ CREATE CAR DOC
+    final carRef = userRef.collection("cars").doc();
+    final String carId = carRef.id;
+
+    final int totalImages = images.length;
+
+    await carRef.set({
+      "carName": "Toyota Fortuner", // later dynamic
+      "status": "Queue",
+      "totalImages": totalImages,
+      "coverImage": "",
+      "createdAt": FieldValue.serverTimestamp(),
+      "updatedAt": FieldValue.serverTimestamp(),
+    });
+
+    /// 🔢 CALCULATE TOTAL BYTES (FOR REAL PROGRESS)
+    int totalBytes = 0;
+    for (final img in images) {
+      final bytes = img.finalImage ?? img.bgRemoved;
+      if (bytes != null) totalBytes += bytes.length;
+    }
+
+    int uploadedBytes = 0;
+    int uploadedCount = 0;
+    bool coverImageSet = false;
+
+    /// 2️⃣ UPLOAD EACH IMAGE
+    for (final CarImage img in images) {
+      final Uint8List? uploadBytes =
+          img.finalImage ?? img.bgRemoved;
+
+      if (uploadBytes == null) continue;
+
+      final bool isTransparent = img.finalImage == null;
+
+      final storageRef = _storage.ref(
+        "users/$uid/cars/$carId/pose_${img.poseIndex}.png",
+      );
+
+      final uploadTask = storageRef.putData(uploadBytes);
+
+      /// 🔥 REAL BYTE PROGRESS
+      uploadTask.snapshotEvents.listen((event) {
+        uploadedBytes += event.bytesTransferred;
+
+        final progress =
+        (uploadedBytes / totalBytes).clamp(0.0, 1.0);
+
+        onProgress(progress);
+      });
+
+      await uploadTask;
+
+      final String downloadUrl = await storageRef.getDownloadURL();
+
+      /// IMAGE DOC
+      final imageRef = carRef.collection("images").doc();
+
+      await imageRef.set({
+        "imageDocId": imageRef.id,
+        "url": downloadUrl,
+        "poseIndex": img.poseIndex,
+        "background": img.background,
+        "isTransparent": isTransparent,
+        "createdAt": FieldValue.serverTimestamp(),
+        "updatedAt": FieldValue.serverTimestamp(),
+      });
+
+      /// ✅ SET COVER IMAGE (ONLY ONCE)
+      if (!coverImageSet) {
+        await carRef.update({
+          "coverImage": downloadUrl,
+        });
+        coverImageSet = true;
+      }
+
+      uploadedCount++; // ✅ FIX
+    }
+
+    /// 3️⃣ MARK CAR DONE
+    if (uploadedCount == totalImages) {
+      await carRef.update({
+        "status": "Done",
+        "updatedAt": FieldValue.serverTimestamp(),
+      });
+    }
+
+    /// 🔥 ENSURE 100%
+    onProgress(1.0);
+  }
+
+
+
+
+
 
   /// Delete COMPLETE car model (all images + car doc)
   static Future<void> deleteCar(String carId) async {
@@ -181,103 +263,4 @@ class CarService {
     await carRef.delete();
   }
 
-  // Future<bool> uploadAllImagesToFirebase(List<CarImage> carImages,  String selectedCar) async {
-  //   final user = FirebaseAuth.instance.currentUser;
-  //   if (user == null) return false;
-  //
-  //   try {
-  //     final storage = FirebaseStorage.instance;
-  //     final firestore = FirebaseFirestore.instance;
-  //
-  //     final carDocId = selectedCar.replaceAll(' ', '_').toLowerCase();
-  //
-  //     final batchId =
-  //     DateTime.now().millisecondsSinceEpoch.toString();
-  //
-  //     String? coverImageUrl;
-  //
-  //     for (int i = 0; i < carImages.length; i++) {
-  //       final img = carImages[i];
-  //
-  //       final Uint8List bytes =
-  //           img.finalImage ??
-  //               img.bgRemoved ??
-  //               await img.original.readAsBytes();
-  //
-  //       final ref = storage
-  //           .ref()
-  //           .child("users")
-  //           .child(user.uid)
-  //           .child("cars")
-  //           .child(carDocId)
-  //           .child(batchId)
-  //           .child("${carDocId}_${i + 1}.png");
-  //
-  //       final snapshot = await ref.putData(
-  //         bytes,
-  //         SettableMetadata(contentType: "image/png"),
-  //       );
-  //
-  //       final url = await snapshot.ref.getDownloadURL();
-  //
-  //       // 🔹 FIRST IMAGE AS COVER
-  //       coverImageUrl ??= url;
-  //
-  //       await firestore
-  //           .collection("users")
-  //           .doc(user.uid)
-  //           .collection("cars")
-  //           .doc(carDocId)
-  //           .collection("images")
-  //           .doc("${batchId}_$i")
-  //           .set({
-  //         "url": url,
-  //         "index": i + 1,
-  //         "batchId": batchId,
-  //         "createdAt": FieldValue.serverTimestamp(),
-  //       });
-  //     }
-  //
-  //     // 🔥 SAVE CAR SUMMARY AFTER UPLOAD
-  //     await CarService.saveCarSummary(
-  //       carName: selectedCar,
-  //       coverImage: coverImageUrl ?? "",
-  //       photosCount: carImages.length,
-  //       batchId: batchId,
-  //     );
-  //
-  //     return true;
-  //   } catch (e) {
-  //     debugPrint("Upload error: $e");
-  //     return false;
-  //   }
-  // }
-  //
-  //
-  // static Future<void> saveCarSummary({
-  //   required String carName,
-  //   required String coverImage,
-  //   required int photosCount,
-  //   required String batchId,
-  // }) async
-  // {
-  //   final user = FirebaseAuth.instance.currentUser!;
-  //   final firestore = FirebaseFirestore.instance;
-  //
-  //   final carDocId = carName.replaceAll(' ', '_').toLowerCase();
-  //
-  //   await firestore
-  //       .collection("users")
-  //       .doc(user.uid)
-  //       .collection("cars")
-  //       .doc(carDocId)
-  //       .set({
-  //     "carName": carName,
-  //     "photos": photosCount,
-  //     "status": "Done",
-  //     "coverImage": coverImage,
-  //     "lastBatchId": batchId,
-  //     "createdAt": FieldValue.serverTimestamp(),
-  //   }, SetOptions(merge: true));
-  // }
 }

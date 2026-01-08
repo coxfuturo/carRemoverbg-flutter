@@ -1,10 +1,15 @@
 import 'package:carbgremover/report_bug_screen.dart';
 import 'package:carbgremover/screens/CameraCaptureScreen.dart';
+import 'package:carbgremover/screens/CaptureStore.dart';
 import 'package:carbgremover/screens/DashboardRoot.dart';
+import 'package:carbgremover/screens/EnhanceImageScreen.dart';
 import 'package:carbgremover/screens/Login.dart';
 import 'package:carbgremover/screens/OnboardingScreen.dart';
 import 'package:carbgremover/screens/Register.dart';
+import 'package:carbgremover/screens/editor_screen.dart';
+import 'package:carbgremover/screens/new_preview_screen.dart';
 import 'package:carbgremover/screens/profile_page.dart';
+import 'package:carbgremover/screens/review_photos_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -26,8 +31,15 @@ void main() async {
   await Firebase.initializeApp();
 
   runApp(
-    ChangeNotifierProvider(create: (_) => AppSettings(), child: const MyApp()),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => CaptureStore()),
+      ],
+      child: const MyApp(),
+    ),
   );
+
 }
 
 class MyApp extends StatelessWidget {
@@ -61,17 +73,10 @@ class MyApp extends StatelessWidget {
         Routes.billingHistoryScreen: (_) => const BillingHistoryScreen(),
         Routes.editProfileScreen: (_) => const EditProfileScreen(),
         Routes.contactSupportScreen: (_) => const ContactSupportScreen(),
-        // Routes.carDetailScreen: (carId) => const CarDetailScreen(carId),
-        Routes.cameraCaptureScreen: (context) {
-          final args =
-          ModalRoute
-              .of(context)!
-              .settings
-              .arguments as Map<String, dynamic>;
-          return CameraCaptureScreen(
-            carId: args["carId"],
-          );
-        }
+        Routes.reviewPhotosScreen: (_) => const ReviewPhotosScreen(),
+        Routes.editorScreen: (_) => const EditorScreen(),
+        Routes.cameraCaptureScreen: (_) => const CameraCaptureScreen(),
+        Routes.enhanceImagescreen: (_) => const EnhanceImageScreen(),
       },
     );
   }

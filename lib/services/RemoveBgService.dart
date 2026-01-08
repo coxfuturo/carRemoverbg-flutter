@@ -3,7 +3,8 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class RemoveBgService {
-  static const String _apiKey = "zccqyj7E69JoSu2ERJos6Jdq";
+  static const String _apiKey = "xNFCyowh71RKVT2dU7vS6k7z";
+
 
   // ============================================
   // 🔥 REMOVE BG FROM LOCAL FILE (OLD – SAFE)

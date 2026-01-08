@@ -23,4 +23,7 @@ class AppSettings extends ChangeNotifier {
     _background = value;
     notifyListeners();
   }
+
+
+
 }

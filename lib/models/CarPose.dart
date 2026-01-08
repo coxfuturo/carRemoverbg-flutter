@@ -8,6 +8,7 @@ class CarPose {
   });
 }
 
+
 final List<CarPose> poses = [
 
   CarPose(name: "Front", guideImage: "assets/images/front.png"),

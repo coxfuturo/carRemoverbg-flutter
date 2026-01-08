@@ -10,6 +10,9 @@ class HomeCarCard extends StatelessWidget {
   final String status;
   final Color statusColor;
 
+  final VoidCallback onView;
+  final VoidCallback onExport;
+
   const HomeCarCard({
     super.key,
     required this.carId,
@@ -19,6 +22,8 @@ class HomeCarCard extends StatelessWidget {
     required this.photos,
     required this.status,
     required this.statusColor,
+    required this.onView,
+    required this.onExport,
   });
 
   @override
@@ -109,9 +114,17 @@ class HomeCarCard extends StatelessWidget {
                 /// BUTTONS
                 Row(
                   children: [
-                    _actionButton(context, Icons.remove_red_eye, "View"),
+                    _actionButton(
+                      icon: Icons.remove_red_eye,
+                      text: "View",
+                      onTap: onView,
+                    ),
                     const SizedBox(width: 10),
-                    _actionButton(context, Icons.download, "Export"),
+                    _actionButton(
+                      icon: Icons.download,
+                      text: "Export",
+                      onTap: onExport,
+                    ),
                   ],
                 ),
               ],
@@ -122,24 +135,23 @@ class HomeCarCard extends StatelessWidget {
     );
   }
 
-  Widget _actionButton(BuildContext context, IconData icon, String text) {
+  Widget _actionButton({
+    required IconData icon,
+    required String text,
+    required VoidCallback onTap,
+  }) {
     return OutlinedButton.icon(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CarDetailScreen(
-              carId: carId, // ✅ CORRECT
-              heroTag: "car-image-$carId", // 🔥 PASS HERO TAG
-            ),
-          ),
-        );
-      },
+      onPressed: onTap,
       icon: Icon(icon, size: 16, color: const Color(0xFF29B6F6)),
-      label: Text(text, style: const TextStyle(color: Color(0xFF29B6F6))),
+      label: Text(
+        text,
+        style: const TextStyle(color: Color(0xFF29B6F6)),
+      ),
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF29B6F6)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
     );
   }

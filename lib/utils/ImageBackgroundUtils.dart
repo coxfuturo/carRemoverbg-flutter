@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:carbgremover/models/BackgroundItem.dart';
@@ -7,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class ImageBackgroundUtils {
-
   static Future<Uint8List> applyBackground({
     required Uint8List carPng,
     required BackgroundItem background,
@@ -30,48 +28,53 @@ class ImageBackgroundUtils {
       final carFrame = await carCodec.getNextFrame();
       final carImage = carFrame.image;
 
-      final recorder = ui.PictureRecorder();
-      final canvas = ui.Canvas(recorder);
-
-      final bgSize = ui.Size(
-        bgImage.width.toDouble(),
-        bgImage.height.toDouble(),
-      );
       final carSize = ui.Size(
         carImage.width.toDouble(),
         carImage.height.toDouble(),
       );
 
-      // 🔹 Draw background
-      canvas.drawImage(bgImage, ui.Offset.zero, ui.Paint());
-
-      // 🔹 Maintain aspect ratio
-      final fitted = applyBoxFit(
-        BoxFit.contain,
-        carSize,
-        bgSize,
+      final bgSize = ui.Size(
+        bgImage.width.toDouble(),
+        bgImage.height.toDouble(),
       );
 
-      final dx = (bgSize.width - fitted.destination.width) / 2;
-      final dy = (bgSize.height - fitted.destination.height) / 2;
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
 
-      // 🔹 Draw car centered
+      // 🔹 Resize background to COVER car size
+      final fittedBg = applyBoxFit(
+        BoxFit.cover,
+        bgSize,
+        carSize,
+      );
+
+      final bgDx = (carSize.width - fittedBg.destination.width) / 2;
+      final bgDy = (carSize.height - fittedBg.destination.height) / 2;
+
+      // 🔹 Draw background (scaled)
       canvas.drawImageRect(
-        carImage,
-        ui.Rect.fromLTWH(0, 0, carSize.width, carSize.height),
+        bgImage,
+        ui.Rect.fromLTWH(0, 0, bgSize.width, bgSize.height),
         ui.Rect.fromLTWH(
-          dx,
-          dy,
-          fitted.destination.width,
-          fitted.destination.height,
+          bgDx,
+          bgDy,
+          fittedBg.destination.width,
+          fittedBg.destination.height,
         ),
+        ui.Paint(),
+      );
+
+      // 🔹 Draw car at ORIGINAL SIZE (no scaling)
+      canvas.drawImage(
+        carImage,
+        ui.Offset.zero,
         ui.Paint(),
       );
 
       final picture = recorder.endRecording();
       final finalImage = await picture.toImage(
-        bgSize.width.toInt(),
-        bgSize.height.toInt(),
+        carSize.width.toInt(),
+        carSize.height.toInt(),
       );
 
       final byteData = await finalImage.toByteData(
@@ -89,4 +92,5 @@ class ImageBackgroundUtils {
       return carPng;
     }
   }
+
 }

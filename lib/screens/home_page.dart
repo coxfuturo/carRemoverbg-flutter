@@ -1,4 +1,6 @@
+import 'package:carbgremover/screens/CarViewDetailScreen.dart';
 import 'package:carbgremover/services/car_service.dart';
+import 'package:carbgremover/services/service_image_download.dart';
 import 'package:carbgremover/utils/Routes.dart';
 import 'package:carbgremover/utils/app_utils.dart';
 import 'package:carbgremover/utils/permissions.dart';
@@ -65,6 +67,8 @@ class _MyHomePageState extends State<MyHomePage> {
       Fluttertoast.showToast(msg: "Failed to create car session");
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +210,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   final totalPhotos = allCars.fold<int>(
                     0,
                         (sum, doc) =>
-                    sum + ((doc["photos"] ?? 0) as int),
+                    sum + ((doc["totalImages"] ?? 0) as int),
                   );
 
                   return Column(
@@ -237,19 +241,32 @@ class _MyHomePageState extends State<MyHomePage> {
 
                             return HomeCarCard(
                               carId: doc.id,
-                              image: data["coverImage"] ??
-                                  "assets/images/car1.jpg",
-                              title: data["carName"] ?? "Unknown",
-                              date: AppUtils.formatDate(
-                                data["createdAt"],
-                              ),
-                              photos: data["photos"] ?? 0,
-                              status: data["status"] ?? "Queue",
-                              statusColor:
-                              data["status"] == "Done"
+                              image: data["coverImage"],
+                              title: data["carName"],
+                              date: AppUtils.formatDate(data["updatedAt"]),
+                              photos: data["totalImages"],
+                              status: data["status"],
+                              statusColor: data["status"] == "Done"
                                   ? Colors.green
                                   : Colors.orange,
+
+                              onView: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CarDetailScreen(
+                                      carId: doc.id,
+                                      heroTag: "car-image-${doc.id}",
+                                    ),
+                                  ),
+                                );
+                              },
+
+                              onExport: () {
+                                ImageExportService.showExportOptions(context,doc.id);
+                              },
                             );
+
                           },
                         ),
                       ),
@@ -268,16 +285,18 @@ class _MyHomePageState extends State<MyHomePage> {
         child: FloatingActionButton(
           backgroundColor: const Color(0xFF29B6F6),
           onPressed: () {
-            final user = FirebaseAuth.instance.currentUser;
+            // final user = FirebaseAuth.instance.currentUser;
 
-            if (user != null) {
-              _showCarNameDialog();
-              // ✅ User logged in → go to camera
+            Navigator.pushNamed(context, Routes.cameraCaptureScreen,);
 
-            } else {
-              // ❌ Not logged in → go to login
-              Navigator.pushNamed(context, Routes.login);
-            }
+            // if (user != null) {
+            //   _showCarNameDialog();
+            //   // ✅ User logged in → go to camera
+            //
+            // } else {
+            //   // ❌ Not logged in → go to login
+            //   Navigator.pushNamed(context, Routes.login);
+            // }
           },
           shape: const CircleBorder(),
           child: const Icon(Icons.add, color: Colors.white),

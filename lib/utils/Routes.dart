@@ -16,5 +16,9 @@ class Routes {
   static const billingHistoryScreen = '/billingHistoryScreen';
   static const editProfileScreen = '/editProfileScreen';
   static const contactSupportScreen = '/contactSupportScreen';
+  static const newPreviewScreen = '/newPreviewScreen';
+  static const reviewPhotosScreen = '/reviewPhotosScreen';
+  static const editorScreen = '/editorScreen';
+  static const enhanceImagescreen = '/enhanceimagescreen';
 }
 

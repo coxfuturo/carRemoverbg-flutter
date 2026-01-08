@@ -25,16 +25,33 @@ class PreviewScreen extends StatefulWidget {
 class _PreviewScreenState extends State<PreviewScreen> {
   List<CarImage> carImages = [];
   int selectedIndex = 0;
-
   bool isProcessing = false;
   bool isUploading = false;
 
-  final List<BackgroundItem> backgrounds = [
-    BackgroundItem(id: "transparent", asset: "assets/images/frame1.jpg"),
-    BackgroundItem(id: "studio_white", asset: "assets/images/frame2.jpg"),
-    BackgroundItem(id: "dark_studio", asset: "assets/images/frame3.jpg"),
-    BackgroundItem(id: "outdoor", asset: "assets/images/frame1.jpg"),
+  final List<BackgroundPreset> backgroundPresets = [
+    BackgroundPreset(
+      title: "White",
+      imagePath: "",
+      color: Colors.white,
+    ),
+    BackgroundPreset(
+      title: "Studio",
+      imagePath: "assets/backgrounds/studio.jpg",
+    ),
+    BackgroundPreset(
+      title: "Outdoor",
+      imagePath: "assets/backgrounds/outdoor.jpg",
+    ),
+    BackgroundPreset(
+      title: "Luxury",
+      imagePath: "assets/backgrounds/premium.jpg",
+    ),
+    BackgroundPreset(
+      title: "Premium",
+      imagePath: "assets/backgrounds/premium.jpg",
+    ),
   ];
+
 
   @override
   void initState() {
@@ -127,7 +144,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
   // --------------------------------------------------
   // APPLY BG SINGLE
   // --------------------------------------------------
-  Future<void> setBgSingle(BackgroundItem bg) async {
+  Future<void> setBgSingle(BackgroundPreset bg) async {
     final img = carImages[selectedIndex];
 
     if (img.bgRemoved == null) {
@@ -136,11 +153,11 @@ class _PreviewScreenState extends State<PreviewScreen> {
     }
 
     setState(() => isProcessing = true);
-    img.finalImage = await ImageBackgroundUtils.applyBackground(
-      carPng: img.bgRemoved!,
-      background: bg,
-    );
-    img.background = bg.id;
+    // img.finalImage = await ImageBackgroundUtils.applyBackground(
+    //   carPng: img.bgRemoved!,
+    //   background: bg,
+    // );
+    // img.background = bg.id;
     setState(() => isProcessing = false);
   }
 
@@ -148,19 +165,19 @@ class _PreviewScreenState extends State<PreviewScreen> {
   // APPLY BG ALL
   // --------------------------------------------------
   Future<void> setBgAll(String bgId) async {
-    final bg = backgrounds.firstWhere((b) => b.id == bgId);
-
-    setState(() => isProcessing = true);
-    for (final img in carImages) {
-      if (img.bgRemoved != null) {
-        img.finalImage = await ImageBackgroundUtils.applyBackground(
-          carPng: img.bgRemoved!,
-          background: bg,
-        );
-        img.background = bg.id;
-      }
-    }
-    setState(() => isProcessing = false);
+    // final bg = backgrounds.firstWhere((b) => b.id == bgId);
+    //
+    // setState(() => isProcessing = true);
+    // for (final img in carImages) {
+    //   if (img.bgRemoved != null) {
+    //     img.finalImage = await ImageBackgroundUtils.applyBackground(
+    //       carPng: img.bgRemoved!,
+    //       background: bg,
+    //     );
+    //     img.background = bg.id;
+    //   }
+    // }
+    // setState(() => isProcessing = false);
   }
 
   // --------------------------------------------------
@@ -330,26 +347,26 @@ class _PreviewScreenState extends State<PreviewScreen> {
                       ),
                     ),
 
-                    // BACKGROUNDS
-                    SizedBox(
-                      height: 90,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: backgrounds.length,
-                        itemBuilder: (_, index) {
-                          final bg = backgrounds[index];
-                          return GestureDetector(
-                            onTap: () => setBgSingle(bg),
-                            onLongPress: () => setBgAll(bg.id),
-                            child: Container(
-                              width: 90,
-                              margin: const EdgeInsets.all(8),
-                              child: Image.asset(bg.asset, fit: BoxFit.cover),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                    // // BACKGROUNDS
+                    // SizedBox(
+                    //   height: 90,
+                    //   child: ListView.builder(
+                    //     scrollDirection: Axis.horizontal,
+                    //     itemCount: backgrounds.length,
+                    //     itemBuilder: (_, index) {
+                    //       final bg = backgrounds[index];
+                    //       return GestureDetector(
+                    //         onTap: () => setBgSingle(bg),
+                    //         onLongPress: () => setBgAll(bg.id),
+                    //         child: Container(
+                    //           width: 90,
+                    //           margin: const EdgeInsets.all(8),
+                    //           child: Image.asset(bg.asset, fit: BoxFit.cover),
+                    //         ),
+                    //       );
+                    //     },
+                    //   ),
+                    // ),
 
                     // SAVE
                     Padding(
